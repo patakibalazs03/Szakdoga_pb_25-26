@@ -1,8 +1,8 @@
 % Add custom paths
-addpath(genpath('C:\Users\Asus\Documents\GitHub\Onlab2025\MRSTB'));
+addpath(genpath('D:\BME\Hetedik_felev\Szakdoga\Matlab\MRSTB'));
 
 % Run a specific script at startup
-run('C:\Users\Asus\Documents\GitHub\Onlab2025\MRSTB\startMobileRoboticsSimulationToolbox.m');
+run('D:\BME\Hetedik_felev\Szakdoga\Matlab\MRSTB\startMobileRoboticsSimulationToolbox.m');
 
 % Display a message
 disp('MATLAB startup complete. Your script has been executed. :)');
