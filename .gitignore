@@ -40,6 +40,9 @@ MRSTB/
 Misc/
 One_dimention/
 stm32test_ert_rtw/
+*.bin
+*.elf
+*.hex
 
 
 
