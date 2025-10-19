@@ -43,6 +43,7 @@ stm32test_ert_rtw/
 *.bin
 *.elf
 *.hex
+*.png
 
 
 
