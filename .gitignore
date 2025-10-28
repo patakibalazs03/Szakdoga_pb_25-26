@@ -44,6 +44,6 @@ stm32test_ert_rtw/
 *.elf
 *.hex
 *.png
-
+slblocks.m
 
 
