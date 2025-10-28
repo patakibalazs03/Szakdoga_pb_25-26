@@ -40,11 +40,10 @@ MRSTB/
 Misc/
 One_dimention/
 stm32test_ert_rtw/
-identification_ert_rtw/
 *.bin
 *.elf
 *.hex
 *.png
 slblocks.m
-
+identification_ert_rtw/
 
