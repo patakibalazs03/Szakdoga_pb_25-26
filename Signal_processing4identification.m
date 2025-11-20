@@ -92,7 +92,7 @@ Ido = Bemenet.Time;
 Input = Bemenet.Data;
 Ido1 = Kerek1.Time;
 Ido2 = Kerek2.Time;
-Output1 = Radius * squeeze(Kerek1.Data);
+Output1 = -Radius * squeeze(Kerek1.Data);
 Output2 = Radius * squeeze(Kerek2.Data);
 
 max_finite1 = max(Output1(isfinite(Output1)));
@@ -103,7 +103,7 @@ Output2(isinf(Output2)) = max_finite2;
 
 figure(4);
 hold on;
-title("Identifikáció közös módusú, előre történő hajtás esetén");
+title("Identifikáció közös módusú hajtás esetén");
 yyaxis left;
 plot(Ido,Input);
 xlabel("Idő [s]");
