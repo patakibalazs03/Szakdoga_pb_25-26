@@ -1,15 +1,32 @@
+clear;
+load("Identifikacio_eredmenye.mat");
+clc;
 nl_x1 = sort(nlhw1.InputNonlinearity.BreakPoints(1,:));
 nl_y1 = sort(nlhw1.InputNonlinearity.BreakPoints(2,:));
-% nl_x12 = nlhw1.InputNonlinearity.BreakPoints(1,:)
-% nl_y12 = nlhw1.InputNonlinearity.BreakPoints(2,:)
+% nl_x12 = nlhw1.InputNonlinearity.BreakPoints(1,:);
+% nl_y12 = nlhw1.InputNonlinearity.BreakPoints(2,:);
 nl_x2 = sort(nlhw2.InputNonlinearity.BreakPoints(1,:));
 nl_y2 = sort(nlhw2.InputNonlinearity.BreakPoints(2,:));
 
+nl_x1(1,6) = 0;
+nl_y1(1,6) = 0;
+nl_y1(1,5) = -1*nl_y1(1,5);
+
+nl_x2(1,6) = 0;
+nl_y2(1,6) = 0;
+nl_y2(1,5) = -1*nl_y2(1,5);
+
 % figure(1)
 % hold on;
+% grid on;
 % plot(nl_x1,nl_y1);
-% plot(nl_x12,nl_y12);
-% legend("javitott","eredeti");
+% plot(nl_x2,nl_y2);
+% title("Bemeneti Nemlinearitás");
+% xlabel("Bemenet [%]");
+% ylabel("Nemlinearitás");
+% legend("Bal oldali kerék nemlinearitása","Jobb oldali kerék nemlinearitása")
+% % plot(nl_x12,nl_y12);
+% % legend("javitott","eredeti");
 % hold off;
 
 %% State space linear models
@@ -20,6 +37,25 @@ linear_sys_ss2 = ss(nlhw2.LinearModel);
 
 P1 = pole(linear_sys_ss1);
 P2 = pole(linear_sys_ss2);
+
+% Pole placement
+Ts = 0.02;
+Tsum1 = 0.8;
+Tsum2 = 1;
+w01 = 5/Tsum1;
+w02 = 5/Tsum2;
+xi = 0.7;
+
+s1 = -xi*w01+1i*w01*sqrt(1-xi^2);
+s2 = -xi*w02+1i*w02*sqrt(1-xi^2);
+z1 = exp(s1*Ts);
+z1c = conj(z1);
+z2 = exp(s2*Ts);
+z2c = conj(z2);
+soinf1 = -5*w01;
+soinf2 = -5*w02;
+zoinf1 = exp(soinf1*Ts);
+zoinf2 = exp(soinf2*Ts);
 
 % obsv(linear_sys_ss1.A,linear_sys_ss1.C);
 % ctrb(linear_sys_ss1.A,linear_sys_ss1.B);
@@ -33,28 +69,26 @@ Gamma2 = linear_sys_ss2.B;
 C1 = linear_sys_ss1.C;
 C2 = linear_sys_ss2.C;
 
-K1 = acker(Phi1,Gamma1,P1);
-K2 = acker(Phi2,Gamma2,P2);
+% State gain
 
-% Trying yout different values for zoinf, zcinf
-Ts = 0.02;
-w0 = 100;
-soinf = -5 *w0;
-scinf = -3 *w0;
-zoinf = exp(soinf*Ts);
-zcinf = exp(scinf*Ts);
+K1 = acker(Phi1,Gamma1,P1*0.935);
+K2 = acker(Phi2,Gamma2,P2*0.949);
 
-Gt1 = acker(Phi1',Phi1'*C1',[zoinf zoinf zoinf]');
-Gt2 = acker(Phi2',Phi2'*C2',[zoinf zoinf zoinf]');
+% State estimation
 
-G1 = Gt1';
-G2 = Gt2';
+% Gt1 = acker(Phi1',Phi1'*C1',[zoinf1 zoinf1 zoinf1]');
+% Gt2 = acker(Phi2',Phi2'*C2',[zoinf2 zoinf2 zoinf2]');
 
-F1 = Phi1-G1*C1*Phi1;
-F2 = Phi2-G2*C2*Phi2;
+% G1 = Gt1';
+% G2 = Gt2';
 
-H1 = Gamma1-G1*C1*Gamma1;
-H2 = Gamma2-G2*C2*Gamma2;
+% F1 = Phi1-G1*C1*Phi1;
+% F2 = Phi2-G2*C2*Phi2;
+
+% H1 = Gamma1-G1*C1*Gamma1;
+% H2 = Gamma2-G2*C2*Gamma2;
+
+% Reference signal gain
 
 N1 = inv([Phi1-eye(3) Gamma1; C1 0]) * [0 0 0 1]';
 N2 = inv([Phi2-eye(3) Gamma2; C2 0]) * [0 0 0 1]';
@@ -63,3 +97,26 @@ Nx1 = N1(1:3);
 Nx2 = N2(1:3);
 Nu1 = N1(4);
 Nu2 = N2(4);
+
+% load estimator
+
+Phit1 = [Phi1 zeros(3,1); zeros(1,3) 1];   %t for tilde
+Phit2 = [Phi2 zeros(3,1); zeros(1,3) 1];
+ 
+Gammat1 = [Gamma1; zeros(1,1)];
+Gammat2 = [Gamma2; zeros(1,1)];
+ 
+Ct1 = [C1 1];
+Ct2 = [C2 1];
+
+Gtilde1 = acker(Phit1',Phit1'*Ct1',[zoinf1 zoinf1 zoinf1 zoinf1]')';
+Gtilde2 = acker(Phit2',Phit2'*Ct2',[zoinf2 zoinf2 zoinf2 zoinf2]')';
+
+Ft1=Phit1-Gtilde1*Ct1*Phit1;
+Ft2=Phit2-Gtilde2*Ct2*Phit2;
+Ht1=Gammat1-Gtilde1*Ct1*Gammat1;
+Ht2=Gammat2-Gtilde2*Ct2*Gammat2;
+
+%% Open model
+
+open("identifikalt_modell.slx");

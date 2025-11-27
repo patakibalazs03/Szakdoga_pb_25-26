@@ -36,11 +36,11 @@ hold off;
 %% Identification for backwards movement
 
 %Ido = Bemenet.Time;
-%Input = Bemenet.Data;
+Input2 = -Bemenet.Data;
 %Ido1 = Kerek1_hatra.Time;
 %Ido2 = Kerek2_hatra.Time;
-Output3 = Radius * squeeze(Kerek1_hatra.Data);
-Output4 = Radius * squeeze(Kerek2_hatra.Data);
+Output3 = -Radius * squeeze(Kerek1_hatra.Data);
+Output4 = -Radius * squeeze(Kerek2_hatra.Data);
 
 max_finite3 = max(Output3(isfinite(Output3)));
 max_finite4 = max(Output4(isfinite(Output4)));
@@ -51,7 +51,7 @@ figure(2);
 hold on;
 title("Identifikáció közös módusú, hátra történő hajtás esetén");
 yyaxis left;
-plot(Ido,Input);
+plot(Ido,Input2);
 xlabel("Idő [s]");
 ylabel("Bemeneti jel [%]");
 yyaxis right;
