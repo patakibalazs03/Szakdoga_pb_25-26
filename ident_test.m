@@ -40,22 +40,26 @@ P2 = pole(linear_sys_ss2);
 
 % Pole placement
 Ts = 0.02;
-Tsum1 = 0.8;
-Tsum2 = 1;
-w01 = 5/Tsum1;
-w02 = 5/Tsum2;
-xi = 0.7;
 
-s1 = -xi*w01+1i*w01*sqrt(1-xi^2);
-s2 = -xi*w02+1i*w02*sqrt(1-xi^2);
+% step(linear_sys_ss1,linear_sys_ss2);
+
+w01 = 9;
+w02 = 9;
+xi = 0.9;
+step(tf(1,[1 2*w01*xi w01^2]),tf(1,[1 2*w02*xi w02^2]));
+
+s1 = -w01*xi+1i*w01*sqrt(1-xi^2);
+s1c = conj(s1);
+s2 = -w02*xi+1i*w02*sqrt(1-xi^2);
+s2c = conj(s2);
 z1 = exp(s1*Ts);
-z1c = conj(z1);
 z2 = exp(s2*Ts);
-z2c = conj(z2);
-soinf1 = -5*w01;
-soinf2 = -5*w02;
-zoinf1 = exp(soinf1*Ts);
-zoinf2 = exp(soinf2*Ts);
+z1c = exp(s1c*Ts);
+z2c = exp(s2c*Ts);
+scinf1 = 3*real(s1);
+scinf2 = 3*real(s2);
+zcinf1 = exp(scinf1*Ts);
+zcinf2 = exp(scinf1*Ts);
 
 % obsv(linear_sys_ss1.A,linear_sys_ss1.C);
 % ctrb(linear_sys_ss1.A,linear_sys_ss1.B);
@@ -71,20 +75,20 @@ C2 = linear_sys_ss2.C;
 
 % State gain
 
-K1 = acker(Phi1,Gamma1,P1*0.935);
-K2 = acker(Phi2,Gamma2,P2*0.949);
+K1 = acker(Phi1,Gamma1,[z1 z1c zcinf1]);
+K2 = acker(Phi2,Gamma2,[z2 z2c zcinf2]);
 
 % State estimation
 
 % Gt1 = acker(Phi1',Phi1'*C1',[zoinf1 zoinf1 zoinf1]');
 % Gt2 = acker(Phi2',Phi2'*C2',[zoinf2 zoinf2 zoinf2]');
-
+% 
 % G1 = Gt1';
 % G2 = Gt2';
-
+% 
 % F1 = Phi1-G1*C1*Phi1;
 % F2 = Phi2-G2*C2*Phi2;
-
+% 
 % H1 = Gamma1-G1*C1*Gamma1;
 % H2 = Gamma2-G2*C2*Gamma2;
 
@@ -100,17 +104,17 @@ Nu2 = N2(4);
 
 % load estimator
 
-Phit1 = [Phi1 zeros(3,1); zeros(1,3) 1];   %t for tilde
-Phit2 = [Phi2 zeros(3,1); zeros(1,3) 1];
- 
+Phit1 = [Phi1 Gamma1; zeros(1,3) 1];   %t for tilde
+Phit2 = [Phi2 Gamma2; zeros(1,3) 1];
+
 Gammat1 = [Gamma1; zeros(1,1)];
 Gammat2 = [Gamma2; zeros(1,1)];
- 
+
 Ct1 = [C1 1];
 Ct2 = [C2 1];
 
-Gtilde1 = acker(Phit1',Phit1'*Ct1',[zoinf1 zoinf1 zoinf1 zoinf1]')';
-Gtilde2 = acker(Phit2',Phit2'*Ct2',[zoinf2 zoinf2 zoinf2 zoinf2]')';
+Gtilde1 = acker(Phit1',Phit1'*Ct1',[zcinf1 zcinf1 zcinf1 zcinf1]')';
+Gtilde2 = acker(Phit2',Phit2'*Ct2',[zcinf2 zcinf2 zcinf2 zcinf2]')';
 
 Ft1=Phit1-Gtilde1*Ct1*Phit1;
 Ft2=Phit2-Gtilde2*Ct2*Phit2;
@@ -119,4 +123,8 @@ Ht2=Gammat2-Gtilde2*Ct2*Gammat2;
 
 %% Open model
 
-open("identifikalt_modell.slx");
+%open("identifikalt_modell.slx");
+
+
+
+
