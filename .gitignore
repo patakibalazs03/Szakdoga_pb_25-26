@@ -46,4 +46,5 @@ stm32test_ert_rtw/
 *.png
 slblocks.m
 identification_ert_rtw/
+simulation_compare_ert_rtw/
 
