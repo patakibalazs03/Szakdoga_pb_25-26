@@ -47,4 +47,5 @@ stm32test_ert_rtw/
 slblocks.m
 identification_ert_rtw/
 simulation_compare_ert_rtw/
+distance_keeping_on_robot_ert_rtw/
 
