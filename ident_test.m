@@ -16,18 +16,21 @@ nl_x2(1,6) = 0;
 nl_y2(1,6) = 0;
 nl_y2(1,5) = -1*nl_y2(1,5);
 
-% figure(1)
-% hold on;
-% grid on;
-% plot(nl_x1,nl_y1);
-% plot(nl_x2,nl_y2);
-% title("Bemeneti Nemlinearitás");
-% xlabel("Bemenet [%]");
-% ylabel("Nemlinearitás");
-% legend("Bal oldali kerék nemlinearitása","Jobb oldali kerék nemlinearitása")
-% % plot(nl_x12,nl_y12);
-% % legend("javitott","eredeti");
-% hold off;
+ideal_x = -0.1:0.025:0.1;
+ideal_y = -100:25:100;
+
+figure(1)
+hold on;
+grid on;
+plot(nl_x1,nl_y1);
+plot(nl_x2,nl_y2);
+plot(ideal_y,ideal_x);
+title("Bemeneti Nemlinearitás");
+xlabel("Bemenet [%]");
+ylabel("Kimenet");
+legend("Bal oldali kerék nemlinearitása","Jobb oldali kerék nemlinearitása","Ideális egyenes")
+legend(location="southeast");
+hold off;
 
 %% State space linear models
 
@@ -43,10 +46,10 @@ Ts = 0.02;
 
 % step(linear_sys_ss1,linear_sys_ss2);
 %% Pole setting in continouos time
-w01 = 9;
-w02 = 7.5;
-xi1 = 1.95;
-xi2 = 1.75;
+w01 = 9; %9
+w02 = 7.5; %7.5
+xi1 = 1.95; %1.95
+xi2 = 1.75; %1.75
 % lin2 = tf(w02^2,[1 2*w02*xi w02^2]);
 % lin1 = tf(w01^2,[1 2*w01*xi w01^2]);
 % [yOut,tOut]= step(lin1);

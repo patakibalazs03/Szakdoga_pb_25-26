@@ -103,6 +103,7 @@ Output2(isinf(Output2)) = max_finite2;
 
 figure(4);
 hold on;
+grid on;
 title("Identifikáció közös módusú hajtás esetén");
 yyaxis left;
 plot(Ido,Input);
