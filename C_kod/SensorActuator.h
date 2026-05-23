@@ -57,9 +57,13 @@ typedef struct{
     uint16_t prev_capture_value;
     uint16_t PSC;
     uint32_t clk_Hz;
-    float pRed;
-    float pBlue;
-    float pGreen;
+    uint16_t tickRed;
+    uint16_t tickBlue;
+    uint16_t tickGreen;
+    uint8_t itCnt;
+    float fRed;
+    float fBlue;
+    float fGreen;
     ColorChannel_t Color;
     bool stepFlag;
 } colorSensorTypedef;
@@ -87,23 +91,20 @@ typedef struct{
     #define MAXIMUM_IDLE_TIME 5  //[interrupt cycles]
 
     // ColorSensor
-    #define SCALE 10000
+    #define S2 LL_GPIO_PIN_5
+    #define S3 LL_GPIO_PIN_4
+ 
 
-    #define R_P_MAX 1100
-    #define R_P_MIN 70
+    #define R_F_MAX 16000
+    #define R_F_MIN 5000
 
-    #define G_P_MAX 1550
+  /*  #define G_P_MAX 1550
     #define G_P_MIN 70
 
     #define B_P_MAX 1800
     #define B_P_MIN 65
 
-    #define R_MIN (SCALE / R_P_MAX)
-    #define R_MAX (SCALE / R_P_MIN)
-    #define G_MIN (SCALE / G_P_MAX)
-    #define G_MAX (SCALE / G_P_MIN)
-    #define B_MIN (SCALE / B_P_MAX)
-    #define B_MAX (SCALE / B_P_MIN)
+*/
 
 // Functions
 

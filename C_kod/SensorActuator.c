@@ -79,44 +79,38 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 
             if(diff == 0) return;
 
-            ColorSensor.counter++;
-
-            if(ColorSensor.counter >= 20)
+            ColorSensor.sum += diff;
+            if(ColorSensor.itCnt >= 16)
             {
-                float total_ticks = (float)ColorSensor.sum * (1.0f + (float)ColorSensor.PSC);
-                float period = total_ticks / (ColorSensor.clk_Hz * 16.0f); 
+                uint16_t total_ticks = ColorSensor.sum;//(float)ColorSensor.sum * (1.0f + (float)ColorSensor.PSC);*/
+                //float period = total_ticks / (ColorSensor.clk_Hz * 16.0f); 
                 if(ColorSensor.Color == COLOR_RED)
                 {
-                    ColorSensor.pRed =  period;
-                    ColorSensor.Color = COLOR_BLUE;
-                    LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_6);
-                    ColorSensor.counter = 0;
-                    ColorSensor.sum = 0;
+                    /*ColorSensor.tickRed = total_ticks;
+                    LL_GPIO_ResetOutputPin(GPIOB, S2);
+                    LL_GPIO_SetOutputPin(GPIOB, S3);
+                    ColorSensor.Color = COLOR_BLUE;*/
                 }
                 else if(ColorSensor.Color == COLOR_BLUE)
                 {
-                    ColorSensor.pBlue = period;
-                    ColorSensor.Color = COLOR_GREEN;
-                    LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_5);
-                    ColorSensor.counter = 0;
-                    ColorSensor.sum = 0;
+                    /*ColorSensor.tickBlue = total_ticks;
+                    LL_GPIO_SetOutputPin(GPIOB, S3);
+                    LL_GPIO_SetOutputPin(GPIOB, S2);
+                    ColorSensor.Color = COLOR_GREEN;*/
                 }
                 else if(ColorSensor.Color == COLOR_GREEN)
                 {
-                    ColorSensor.pGreen = period;
-                    ColorSensor.Color = COLOR_RED;
-                    LL_GPIO_ResetOutputPin(GPIOB, LL_GPIO_PIN_5);
-                    LL_GPIO_ResetOutputPin(GPIOB, LL_GPIO_PIN_6);
-                    ColorSensor.counter = 0;
-                    ColorSensor.sum = 0;
+                    ColorSensor.tickGreen = total_ticks;
+                    /*LL_GPIO_ResetOutputPin(GPIOB, S2);
+                    LL_GPIO_ResetOutputPin(GPIOB, S3);
+                    ColorSensor.Color = COLOR_RED;*/
                 }
-
-                ColorSensor.counter = 0;
-                ColorSensor.sum = 0;  
+                ColorSensor.sum = 0;
+                ColorSensor.itCnt = 0;
             }
-            else if(ColorSensor.counter >= 4)
-            { 
-                ColorSensor.sum += diff;
+            else
+            {
+                ColorSensor.itCnt++;
             }
         }
     }
@@ -329,12 +323,15 @@ double getSpeedB()
 
 RGB_t getRGB()
 {
+    ColorSensor.fRed = (ColorSensor.clk_Hz) * 16.0f / ColorSensor.tickRed / (1.0f + (float)ColorSensor.PSC); //Hz frequency!
+    ColorSensor.fGreen = (ColorSensor.clk_Hz) *16.0f / (ColorSensor.tickGreen *  (1.0f + (float)ColorSensor.PSC));
+    ColorSensor.fBlue = (ColorSensor.clk_Hz) * 16.0f / (ColorSensor.tickBlue *  (1.0f + (float)ColorSensor.PSC)) ;
     RGB_t result = {0};
-    uint16_t sR = 65535;
+    /*uint16_t sR = 65535;
     uint16_t sG = 65535;
-    uint16_t sB = 65535;
+    uint16_t sB = 65535;*/
 
-    if (ColorSensor.pRed != 0) {
+    /*if (ColorSensor.pRed != 0) {
         sR = SCALE / ColorSensor.pRed;
     }
     if (ColorSensor.pGreen != 0) {
@@ -342,11 +339,19 @@ RGB_t getRGB()
     }
     if (ColorSensor.pBlue != 0) {
         sB = SCALE / ColorSensor.pBlue;
-    }
+    }*/
 
-    result.R = (sR - R_MIN) * 255 / (R_MAX - R_MIN);
-    resutl.G = (sG - G_MIN) * 255 / (G_MAX - G_MIN);
-    result.B = (sB - B_MIN) * 255 / (B_MAX - B_MIN);
+    //if (ColorSensor.fRed < R_F_MIN) ColorSensor.fRed = R_F_MIN;
+    //if (ColorSensor.fRed > R_F_MAX) ColorSensor.fRed = R_F_MAX;
+    /*if (sB < B_MIN) sB = B_MIN;
+    if (sB > B_MAX) sB = B_MAX;
+    if (sG < G_MIN) sG = G_MIN;
+    if (sG > G_MAX) sG = G_MAX;*/
+
+    result.R = ColorSensor.fRed; //(ColorSensor.fRed - R_F_MIN) * 255 / (R_F_MAX - R_F_MIN);
+    result.G = ColorSensor.fGreen;//(sG - G_MIN) * 255 / (G_MAX - G_MIN);
+    result.B = ColorSensor.fBlue;//(sB - B_MIN) * 255 / (B_MAX - B_MIN);
+
     return result;
 }
 
@@ -406,6 +411,13 @@ void Timer_Init_Custom(void){
         HAL_TIM_IC_Start_IT(&htim4,TIM_CHANNEL_3);
         ColorSensor.PSC = htim4.Init.Prescaler;
         ColorSensor.clk_Hz = (apb1_freq_hz * 2);
+        ColorSensor.tickRed = 10;
+        ColorSensor.tickBlue = 10;
+        ColorSensor.tickGreen = 10;
+        LL_GPIO_SetOutputPin(GPIOB, S2);
+        LL_GPIO_SetOutputPin(GPIOB, S3);
+        ColorSensor.Color = COLOR_GREEN;
+
 
 #endif
 }
