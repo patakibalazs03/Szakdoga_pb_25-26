@@ -19,11 +19,12 @@
 // The PSC is set to 1000, because it gives 100 kHz, which gives the ideal resolution s timer overflow
 infraredTypedef InfraSensor = { .clk_MHz = 100, .PSC = 999 };    //PSC and clk_MHz also written from the initialization!
 uint32_t last_distance = 400; // The default should be 40 centimeters, because I usually set the target to 40 cm-s
-uint32_t batteryVoltage = 0;  //
+volatile uint32_t batteryVoltage = 0;  //
 uint32_t last_speed = 0;
+bool skipFlagColorSensor = false;
 
 volatile encoderTypedef Encoder = { .clk_Hz = 100000000, .PSC = 0, .PSCR1 = 1, .PSCR3 = 1, .CPR = 1024};
-volatile colorSensorTypedef ColorSensor = {.Color = COLOR_RED, .stepFlag = false};
+volatile colorSensorTypedef ColorSensor = {.Color = COLOR_RED};
 
 /////////////////////////////////////////////
 //// All the hardware interrupts go here ///
@@ -73,40 +74,55 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
         // ---------------------------------------------------------
         else if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3)
         {
+            // The colorsensor works with 50% PWM, we need to know the Frequency of the signal, which gives the intensity of the 3 color channels
+            // In this part, we use the timer input capture the get how many counts are elapsed between 2 rising edges
             ColorSensor.capture_value = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3);
             uint16_t diff = ColorSensor.capture_value - ColorSensor.prev_capture_value;
             ColorSensor.prev_capture_value = ColorSensor.capture_value;
 
+            // In case of a counting error, we return
             if(diff == 0) return;
-
+            // We can set averaging, the default value is 16
             ColorSensor.sum += diff;
-            if(ColorSensor.itCnt >= 16)
+            // 3 cases: -we need more counts for the avrage
+            //          -we are evaluating the average
+            //          -we need to skip the first sample of each measurement because the previous count will overlap with the previous color
+            // Note: we use the skipFlagColorSensor for this operation
+            if(ColorSensor.itCnt >= NumOfAverages && !skipFlagColorSensor)
             {
-                uint16_t total_ticks = ColorSensor.sum;//(float)ColorSensor.sum * (1.0f + (float)ColorSensor.PSC);*/
-                //float period = total_ticks / (ColorSensor.clk_Hz * 16.0f); 
+
+                uint16_t total_ticks = ColorSensor.sum;
+
                 if(ColorSensor.Color == COLOR_RED)
                 {
-                    /*ColorSensor.tickRed = total_ticks;
+                    ColorSensor.tickRed = total_ticks;
                     LL_GPIO_ResetOutputPin(GPIOB, S2);
                     LL_GPIO_SetOutputPin(GPIOB, S3);
-                    ColorSensor.Color = COLOR_BLUE;*/
+                    ColorSensor.Color = COLOR_BLUE;
+                    skipFlagColorSensor = true;
                 }
                 else if(ColorSensor.Color == COLOR_BLUE)
                 {
-                    /*ColorSensor.tickBlue = total_ticks;
+                    ColorSensor.tickBlue = total_ticks;
                     LL_GPIO_SetOutputPin(GPIOB, S3);
                     LL_GPIO_SetOutputPin(GPIOB, S2);
-                    ColorSensor.Color = COLOR_GREEN;*/
+                    ColorSensor.Color = COLOR_GREEN;
+                    skipFlagColorSensor = true;
                 }
                 else if(ColorSensor.Color == COLOR_GREEN)
                 {
                     ColorSensor.tickGreen = total_ticks;
-                    /*LL_GPIO_ResetOutputPin(GPIOB, S2);
+                    LL_GPIO_ResetOutputPin(GPIOB, S2);
                     LL_GPIO_ResetOutputPin(GPIOB, S3);
-                    ColorSensor.Color = COLOR_RED;*/
+                    ColorSensor.Color = COLOR_RED;
+                    skipFlagColorSensor = true;
                 }
                 ColorSensor.sum = 0;
                 ColorSensor.itCnt = 0;
+            }
+            else if(skipFlagColorSensor)
+            {
+                skipFlagColorSensor = false;
             }
             else
             {
@@ -233,7 +249,7 @@ void Update_Battery_Logic(bool buttonValue) {
     #if !defined(SLCC_SIMULATION) && !defined(MATLAB_MEX_FILE)
     //read the hardware
     if (buttonValue == 0) {
-        HAL_ADC_Start(VBAT_ADC);
+        //HAL_ADC_Start_IT(VBAT_ADC);
     }
     #else
         // For the simulation, do nothing
@@ -288,6 +304,9 @@ uint32_t infrared(){
 uint16_t readBatteryVoltage(bool buttonValue)
 {
     Update_Battery_Logic(buttonValue);
+    #if !defined(SLCC_SIMULATION) && !defined(MATLAB_MEX_FILE)
+    HAL_ADC_Stop_IT(VBAT_ADC);
+    #endif
     return batteryVoltage;
 }
 
@@ -323,34 +342,89 @@ double getSpeedB()
 
 RGB_t getRGB()
 {
-    ColorSensor.fRed = (ColorSensor.clk_Hz) * 16.0f / ColorSensor.tickRed / (1.0f + (float)ColorSensor.PSC); //Hz frequency!
-    ColorSensor.fGreen = (ColorSensor.clk_Hz) *16.0f / (ColorSensor.tickGreen *  (1.0f + (float)ColorSensor.PSC));
-    ColorSensor.fBlue = (ColorSensor.clk_Hz) * 16.0f / (ColorSensor.tickBlue *  (1.0f + (float)ColorSensor.PSC)) ;
+    ColorSensor.fRed = (ColorSensor.clk_Hz) * NumOfAveragesf / (ColorSensor.tickRed * (1.0f + (float)ColorSensor.PSC)); //Hz frequency!
+    ColorSensor.fGreen = (ColorSensor.clk_Hz) * NumOfAveragesf / (ColorSensor.tickGreen *  (1.0f + (float)ColorSensor.PSC));
+    ColorSensor.fBlue = (ColorSensor.clk_Hz) * NumOfAveragesf / (ColorSensor.tickBlue *  (1.0f + (float)ColorSensor.PSC)) ;
     RGB_t result = {0};
-    /*uint16_t sR = 65535;
-    uint16_t sG = 65535;
-    uint16_t sB = 65535;*/
 
-    /*if (ColorSensor.pRed != 0) {
-        sR = SCALE / ColorSensor.pRed;
+    if (ColorSensor.fRed < R_F_MIN) ColorSensor.fRed = R_F_MIN;
+    if (ColorSensor.fRed > R_F_MAX) ColorSensor.fRed = R_F_MAX;
+    if (ColorSensor.fBlue < B_F_MIN) ColorSensor.fBlue = B_F_MIN;
+    if (ColorSensor.fBlue > B_F_MAX) ColorSensor.fBlue = B_F_MAX;
+    if (ColorSensor.fGreen < G_F_MIN) ColorSensor.fGreen = G_F_MIN;
+    if (ColorSensor.fGreen > G_F_MAX) ColorSensor.fGreen = G_F_MAX;
+
+    result.R = (ColorSensor.fRed - R_F_MIN) * 255 / (R_F_MAX - R_F_MIN);
+    result.G = (ColorSensor.fGreen - G_F_MIN) * 255 / (G_F_MAX - G_F_MIN);
+    result.B = (ColorSensor.fBlue - B_F_MIN) * 255 / (B_F_MAX - B_F_MIN);
+
+    return result;
+}
+
+HSV_t getHSVfromRGB(RGB_t measurement)
+{
+    float Red = (float)measurement.R / 255.0f;
+    float Green = (float)measurement.G / 255.0f;
+    float Blue = (float)measurement.B / 255.0f;
+
+    float max = (Red > Green) ? Red : Green;
+    max = (max > Blue) ? max : Blue;
+    float min = (Red < Green) ? Red : Green;
+    min = (min < Blue) ? min : Blue;
+
+    HSV_t result = {0};
+
+    result.Value = (float)max * 100.0f;
+
+    float delta = max - min;
+
+    result.Saturation = ((max == 0) ? 0 : delta / max) * 100.0f;
+
+    if (max == 0.0f) 
+    {
+        result.Saturation = 0.0f;
+        result.Hue = 0.0f; // Hue is undefined if color is black
+        return result;
     }
-    if (ColorSensor.pGreen != 0) {
-        sG = SCALE / ColorSensor.pGreen;
+    if (delta == 0.0f)
+    {
+        result.Hue = 0.0f;
     }
-    if (ColorSensor.pBlue != 0) {
-        sB = SCALE / ColorSensor.pBlue;
-    }*/
+    else 
+    {
+        if (max == Red)
+        {
+            result.Hue = 60.0f * (Green - Blue) / delta;
+        }
+        else if (max == Green)
+        {
+            result.Hue = 60.0f * ((Blue - Red) / delta + 2.0f);
+        }
+        else // max == Blue
+        {
+            result.Hue = 60.0f * ((Red - Green) / delta + 4.0f);
+        }
 
-    //if (ColorSensor.fRed < R_F_MIN) ColorSensor.fRed = R_F_MIN;
-    //if (ColorSensor.fRed > R_F_MAX) ColorSensor.fRed = R_F_MAX;
-    /*if (sB < B_MIN) sB = B_MIN;
-    if (sB > B_MAX) sB = B_MAX;
-    if (sG < G_MIN) sG = G_MIN;
-    if (sG > G_MAX) sG = G_MAX;*/
+        // Keep the angle positive between 0 and 360
+        if (result.Hue < 0.0f)
+        {
+            result.Hue += 360.0f;
+        }
+    }
 
-    result.R = ColorSensor.fRed; //(ColorSensor.fRed - R_F_MIN) * 255 / (R_F_MAX - R_F_MIN);
-    result.G = ColorSensor.fGreen;//(sG - G_MIN) * 255 / (G_MAX - G_MIN);
-    result.B = ColorSensor.fBlue;//(sB - B_MIN) * 255 / (B_MAX - B_MIN);
+    return result;
+}
+
+RGB_t calibrateRGB()
+{
+    ColorSensor.fRed = (ColorSensor.clk_Hz) * NumOfAveragesf / (ColorSensor.tickRed * (1.0f + (float)ColorSensor.PSC)); //Hz frequency!
+    ColorSensor.fGreen = (ColorSensor.clk_Hz) * NumOfAveragesf / (ColorSensor.tickGreen *  (1.0f + (float)ColorSensor.PSC));
+    ColorSensor.fBlue = (ColorSensor.clk_Hz) * NumOfAveragesf / (ColorSensor.tickBlue *  (1.0f + (float)ColorSensor.PSC)) ;
+    RGB_t result = {0};
+
+    result.R = ColorSensor.fRed;
+    result.G = ColorSensor.fGreen;
+    result.B = ColorSensor.fBlue;
 
     return result;
 }
@@ -373,6 +447,8 @@ uint8_t Get_Actual_Ratio(uint32_t hal_macro) {
 }
 #endif
 
+
+
 // Timer_Init_Custom
 // Starts the interrupt handling of the timers; needs to be seen by simulink!!
 // Also: reads the clock speed and certain register values from the generated code 
@@ -385,7 +461,7 @@ void Timer_Init_Custom(void){
             // Falling edge
         HAL_TIM_IC_Start_IT(&htim4,TIM_CHANNEL_2);
         //Update the PSC from the generated STM32CubeMX code :))))
-        InfraSensor.PSC = htim4.Init.Prescaler;
+        InfraSensor.PSC = htim4.Init.Prescaler; // This should be 999, so we get 100 kHz, so we get the best resolution
         //Update the clk_MHz from the generated ... :)
         uint32_t apb1_freq_hz = HAL_RCC_GetPCLK1Freq();
         InfraSensor.clk_MHz = (apb1_freq_hz * 2) / 1000000; // The multiplication is required because of the clock configuration (->/2->*2-> Problem!; APB1)
@@ -396,8 +472,8 @@ void Timer_Init_Custom(void){
         // EncoderB (1,2)
         HAL_TIM_IC_Start_IT(&htim5,TIM_CHANNEL_3);
 
-        Encoder.PSC = htim5.Init.Prescaler; // This should be 999, so we get 100 kHz, so we get the best resolution
-        Encoder.clk_Hz = InfraSensor.clk_MHz*1000000;   // This yould be in MHz
+        Encoder.PSC = htim5.Init.Prescaler; 
+        Encoder.clk_Hz = InfraSensor.clk_MHz*1000000;   // This sould be in MHz
 
         // Get the raw HAL bitmasks
         uint32_t rawPSC1 = __HAL_TIM_GET_ICPRESCALER(&htim5, TIM_CHANNEL_1);
@@ -411,13 +487,10 @@ void Timer_Init_Custom(void){
         HAL_TIM_IC_Start_IT(&htim4,TIM_CHANNEL_3);
         ColorSensor.PSC = htim4.Init.Prescaler;
         ColorSensor.clk_Hz = (apb1_freq_hz * 2);
-        ColorSensor.tickRed = 10;
-        ColorSensor.tickBlue = 10;
-        ColorSensor.tickGreen = 10;
-        LL_GPIO_SetOutputPin(GPIOB, S2);
-        LL_GPIO_SetOutputPin(GPIOB, S3);
-        ColorSensor.Color = COLOR_GREEN;
-
-
+        LL_GPIO_ResetOutputPin(GPIOB, S2);
+        LL_GPIO_ResetOutputPin(GPIOB, S3);
+        ColorSensor.Color = COLOR_RED;
+        ColorSensor.capture_value = 0;
+        ColorSensor.prev_capture_value = 0;
 #endif
 }

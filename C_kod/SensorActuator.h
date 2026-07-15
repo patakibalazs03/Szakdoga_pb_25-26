@@ -8,7 +8,7 @@
 // Global variables
 
 extern uint32_t last_distance;
-extern uint32_t batteryVoltage;
+extern volatile uint32_t batteryVoltage;
 extern uint32_t last_speed;
 // Different Color Channels for the Color Sensor
 typedef enum {
@@ -65,7 +65,6 @@ typedef struct{
     float fBlue;
     float fGreen;
     ColorChannel_t Color;
-    bool stepFlag;
 } colorSensorTypedef;
 
 typedef struct{
@@ -73,6 +72,12 @@ typedef struct{
     uint16_t G;
     uint16_t B;
 } RGB_t;
+
+typedef struct{
+    uint8_t Hue;
+    float Saturation;
+    float Value;
+} HSV_t;
 
 // Defines
 
@@ -95,16 +100,18 @@ typedef struct{
     #define S3 LL_GPIO_PIN_4
  
 
-    #define R_F_MAX 16000
-    #define R_F_MIN 5000
+    #define R_F_MAX 23188
+    #define R_F_MIN 5128
 
-  /*  #define G_P_MAX 1550
-    #define G_P_MIN 70
+    #define G_F_MAX 16666
+    #define G_F_MIN 3193
 
-    #define B_P_MAX 1800
-    #define B_P_MIN 65
+    #define B_F_MAX 18181
+    #define B_F_MIN 3193
 
-*/
+
+    #define NumOfAverages 16
+    #define NumOfAveragesf 16.0f
 
 // Functions
 
@@ -116,6 +123,9 @@ void Update_Battery_Logic(bool buttonValue);
 double getSpeedA();
 double getSpeedB();
 RGB_t getRGB();
+RGB_t calibrateRGB();
+HSV_t getHSVfromRGB(RGB_t measurement);
+
 
 //Global variables extended
 extern volatile encoderTypedef Encoder;
